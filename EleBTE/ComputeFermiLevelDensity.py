@@ -22,7 +22,7 @@ Del_E = 0
 k_T = k_b * Temp / eV # Boltzmann constant in eV/K
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-path = os.path.join(current_dir, 'TDOS.dat')
+path = os.path.join(current_dir, 'ZrCoSb.dat')
 
 #  pass-test
 def read_dos(path):
@@ -39,8 +39,8 @@ def read_dos(path):
             energy.append(En_temp)
             dos.append(DOS_temp)
         Del_E = energy[1] - energy[0]
-        energy = np.array(energy)*2
-        dos = np.array(dos)
+        energy = np.array(energy)
+        dos = np.array(dos)*2
     
     return energy, dos
 
@@ -92,10 +92,10 @@ def find_band_edge(energy, dos):
     
     
     # plt.plot(vbm_energy, vbm_dos)
-    plt.plot(cbm_energy, cbm_dos)
-    plt.xlim(-5, -5) 
-    plt.ylim(0, 10)
-    plt.show()    
+    # plt.plot(cbm_energy, cbm_dos)
+    # plt.xlim(-5, 55) 
+    # plt.ylim(0, 10)
+    # plt.show()    
 
     return vbm_dos, vbm_energy, cbm_dos, cbm_energy
 
@@ -161,9 +161,14 @@ def fd_intergal(efermi: float, energy: np.ndarray, dos: np.ndarray) -> float:
     kT = k_b * Temp / eV
     # exp_arg = np.clip((energy - efermi) / kT, -1e10, 1e10)  # Avoid overflow in exp
     fd_value = 1 / (np.exp((energy-efermi)/ kT) + 1)
+    # print(np.exp((energy-efermi)/ kT))
     n_type = np.trapezoid(dos * fd_value, energy)
     p_type = np.trapezoid(dos * (1 - fd_value), energy)
-    # p_type = np.trapezoid(dos * (fd_value), energy)
+    # plt.plot(energy, dos, label='DOS')
+    # plt.plot(energy, fd_value, label='Fermi-Dirac Distribution')
+    # # plt.plot(energy, dos * fd_value,linestyle='--', label='n_type Carrier Density')
+    # plt.legend()
+    # plt.show()
     
     return p_type, n_type
 
@@ -177,11 +182,11 @@ def carrier_density(vbm_energy, vbm_dos, cbm_energy, cbm_dos,\
     p_type, _ = fd_intergal(E_fermi, vbm_energy, vbm_dos)
     _, n_type = fd_intergal(E_fermi, cbm_energy, cbm_dos)
     total_density = (p_type + n_type)/volume
-    return n_type  
+    return total_density  
 
 def self_consist(vbm_energy, vbm_dos, cbm_energy, cbm_dos,\
-                  E_fermi=(VBM+CBM)/2, lp=VBM-3, rp=CBM+3, \
-                  count= 0, target_density=1.5e21):
+                  E_fermi=(VBM+CBM)/2, lp=VBM-1, rp=CBM+1, \
+                  count= 0, target_density=3.8e21):
     """
     parameters
     	E_fermi: initital point: in the middle between VBM and CBM
@@ -197,7 +202,8 @@ def self_consist(vbm_energy, vbm_dos, cbm_energy, cbm_dos,\
     total_density = (p_type - n_type)/volume - target_density
 
     # print(p_type)
-    # print(f"P-type density: {(p_type - n_type)/volume:.2e} cm^-3")
+    # print(p_type/volume)
+    print(f"P-type density: {(p_type)/volume:.2e} cm^-3")
     # print(f"P-type density: {total_density:.2e} cm^-3")
     # print(E_fermi)
     if (np.abs(total_density) <= carrier_criteria): 
@@ -209,11 +215,11 @@ def self_consist(vbm_energy, vbm_dos, cbm_energy, cbm_dos,\
         return E_fermi
     elif total_density < 0:
         return self_consist(vbm_energy, vbm_dos, cbm_energy, cbm_dos, \
-                            rp = E_fermi,E_fermi=(E_fermi + lp)/2, \
+                            rp = E_fermi,lp = lp, E_fermi=(E_fermi + lp)/2, \
                             count = count+1)
     else:
         return self_consist(vbm_energy, vbm_dos, cbm_energy, cbm_dos, \
-                            lp = E_fermi, E_fermi=(E_fermi + rp)/2, 
+                            lp = E_fermi,rp = rp, E_fermi=(E_fermi + rp)/2, 
                             count = count+1)
 
 
@@ -229,30 +235,30 @@ def main():
     """
     TEST: Efermi-vs-Density
     """
-    E_fermi = np.linspace(-3, 0.0, 1000)
-    density = np.zeros(E_fermi.shape)
-    for i in range(len(E_fermi)):
-        density[i] = carrier_density(vbm_energy, vbm_dos, cbm_energy, cbm_dos,\
-                                      E_fermi[i])
-    plt.scatter(E_fermi, np.log10(np.abs(density/volume)))
-    plt.axhline(y=0, color='r', linestyle='--')
-    # plt.ylim(0, 1e20)
-    plt.show()
+    # E_fermi = np.linspace(-3, 2, 1000)
+    # density = np.zeros(E_fermi.shape)
+    # for i in range(len(E_fermi)):
+    #     density[i] = carrier_density(vbm_energy, vbm_dos, cbm_energy, cbm_dos,\
+    #                                   E_fermi[i])
+    # plt.scatter(E_fermi, np.log10(np.abs(density)))
+    # plt.axhline(y=0, color='r', linestyle='--')
+    # # plt.ylim(0, 1e20)
+    # plt.show()
 
     """
     TEST:  Fermi_Dirac intergral
     """
-    # exp_arg = np.clip((energy - 0) / k_T, -1e10, 1e10)  # Avoid overflow in exp
-    # fd_value = 1 / (np.exp(exp_arg) + 1)
-    # fd_int = np.trapezoid(fd_value, energy)
-    # print(fd_int)
+    exp_arg = np.clip((energy - 0) / k_T, -1e10, 1e10)  # Avoid overflow in exp
+    fd_value = 1 / (np.exp(exp_arg) + 1)
+    fd_int = np.trapezoid(fd_value, energy)
+    print(fd_int)
     
-    # print(carrier_density(vbm_energy, vbm_dos, cbm_energy, cbm_dos,\
-    #                 E_fermi=-2))
+    print(carrier_density(vbm_energy, vbm_dos, cbm_energy, cbm_dos,\
+                    E_fermi=-0))
     
-    # E_fermi = self_consist(vbm_dos, vbm_energy, cbm_dos, cbm_energy, \
-    #                        E_fermi=(VBM+CBM)/2, rp= CBM+3, lp=VBM-3)
-    # print(f"Calculated Fermi Level: {E_fermi}")
+    E_fermi = self_consist(vbm_energy, vbm_dos, cbm_energy, cbm_dos, \
+                           E_fermi=(VBM+CBM)/2, rp= CBM+2, lp=VBM-2)
+    print(f"Calculated Fermi Level: {E_fermi}")
     
 if __name__ == "__main__":
     main()
